@@ -1,0 +1,100 @@
+---
+name: traefik-csepia
+
+x-bake-enabled:
+  environment:
+    COMPOSE_BAKE: "true"
+
+volumes:
+  portainer_data:
+
+
+networks:
+  traefik-network:
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-network"
+      - "--entrypoints.web.address=:80"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      # -- PLUGIN DECLARATION INLINE --
+      - "--experimental.plugins.rewrite-body.moduleName=github.com/packruler/rewrite-body"
+      - "--experimental.plugins.rewrite-body.version=v1.2.0"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dynamic_config:/etc/traefik/dynamic
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+
+  portainer:
+    image: portainer/portainer-ce
+    container_name: portainer
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - 'portainer_data:/data'
+    networks:
+      - traefik-network
+
+
+  cronicle:
+    env_file:
+      - .env
+    image: soulteary/cronicle
+    container_name: cronicle
+    restart: always
+#    user: "1000:1000"    
+#    expose:
+#      - 3012
+    ports:
+      - "3012:3012"
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cronicle.rule=Host(`cron.$BASE_DOMAIN`)"
+      - "traefik.http.routers.cronicle.entrypoints=web"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./data/data:/opt/cronicle/data
+      - ./data/logs:/opt/cronicle/logs
+      - ./data/plugins:/opt/cronicle/plugins
+#      - ./pants:/opt/cronicle/editme
+      - ./dynamic_config:/opt/cronicle/traefik
+    extra_hosts:
+      - "cron.examplesetup.com:0.0.0.0"
+    environment:
+      - TZ=Etc/UTC
+      - HOSTNAME=cron.$BASE_DOMAIN
+      - CRONICLE_foreground=1
+      - CRONICLE_echo=1
+      - CRONICLE_base_app_url=http://cron.$BASE_DOMAIN:3012
+      - CRONICLE_web_socket_use_hostnames=1
+      - CRONICLE_server_comm_use_hostnames=1
+      - CRONICLE_WebServer__http_port=3012
+      - CRONICLE_WebServer__http_bind_address=0.0.0.0
+      - CRONICLE_WebServer__https=0
+      - CRONICLE_web_direct_connect=0
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:3012/api/app/ping || exit 1"]
+#      interval: 5s
+#      timeout: 1s
+#      retries: 3
+#    logging:
+#        driver: "json-file"
+#        options:
+#            max-size: "10m"
