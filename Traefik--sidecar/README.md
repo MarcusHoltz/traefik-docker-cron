@@ -202,6 +202,16 @@ We can setup this same concept to setup a "stop using your computer, and go to b
 We will inject a header on specific apps that prevents you from using them. This could be a media streaming app, or a productivity app. Whatever.
 
 
+
+
+* * *
+
+### Sepia Sleep Services Demo 
+
+![Example of the middlewear on traefik injecting a header that runs css blacking out the screen](https://raw.githubusercontent.com/MarcusHoltz/marcusholtz.github.io/refs/heads/main/assets/img/posts/turnoffservices--sepia-your-services.gif)
+
+
+
 ---
 
 ### HIGH-LEVEL OVERVIEW
