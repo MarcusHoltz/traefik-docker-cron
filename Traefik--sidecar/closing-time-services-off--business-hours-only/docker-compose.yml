@@ -1,0 +1,66 @@
+---
+name: traefik-closingtime
+
+x-bake-enabled:
+  environment:
+    COMPOSE_BAKE: "true"
+
+networks:
+  traefik-network:
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-network"
+      - "--entrypoints.web.address=:80"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dynamic_config:/etc/traefik/dynamic
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+
+  work-service:
+    image: traefik/whoami
+    container_name: work-service
+    networks:
+      - traefik-network
+
+  closed-service:
+    image: nginx:alpine
+    container_name: closed-service
+    command: >
+      /bin/sh -c "echo '<h1>Closed after hours</h1>' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.closed-service.loadbalancer.server.port=80"
+      - "traefik.http.routers.closed.entrypoints=web"
+      - "traefik.http.routers.closed.priority=55"
+      - "traefik.http.routers.closed.rule=Host(`work.example.com`)"
+
+  priority-updater:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: priority-updater
+    volumes:
+      - ./dynamic_config:/app/dynamic_config
+    environment:
+      - TZ=UTC  # Set your local timezone here (e.g., America/New_York)
+    restart: unless-stopped
+    networks:
+      - traefik-network
