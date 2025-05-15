@@ -1,0 +1,65 @@
+---
+name: traefik-overnight
+
+x-bake-enabled:
+  environment:
+    COMPOSE_BAKE: "true"
+
+volumes:
+  portainer_data:
+
+
+networks:
+  traefik-network:
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-network"
+      - "--entrypoints.web.address=:80"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      # -- PLUGIN DECLARATION INLINE --
+      - "--experimental.plugins.rewrite-body.moduleName=github.com/packruler/rewrite-body"
+      - "--experimental.plugins.rewrite-body.version=v1.2.0"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dynamic_config:/etc/traefik/dynamic
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+
+  portainer:
+    image: portainer/portainer-ce
+    container_name: portainer
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - 'portainer_data:/data'
+    networks:
+      - traefik-network
+
+  priority-updater:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: priority-updater
+    volumes:
+      - ./dynamic_config:/app/dynamic_config
+    environment:
+      - TZ=UTC  # Set your local timezone here (e.g., America/New_York)
+#      - START_HOUR=8       # You can overwrite your start time here
+#      - END_HOUR=20        # You can overwrite your end time here
+    restart: unless-stopped
+    networks:
+      - traefik-network
