@@ -28,7 +28,7 @@ echo "Creating job event..."
 JOB_SCRIPT=$(cat <<'EOF' | sed "s/DOMAIN_PLACEHOLDER_VARIABLE/${BASE_DOMAIN}/"
 #!/bin/sh
 
-YAML_FILE='/opt/cronicle/traefik/itworks.yaml'
+YAML_FILE='/opt/cronicle/traefik/middlewear-portainer.yml'
 
 # Write the YAML content line by line
 echo 'http:' > $YAML_FILE
